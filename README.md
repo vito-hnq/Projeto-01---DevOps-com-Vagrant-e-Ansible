@@ -1,20 +1,22 @@
 # Projeto 01 - DevOps com Vagrant e Ansible
 
 ## 📌 Sobre o Projeto
+
 Este repositório contém a infraestrutura como código (IaC) desenvolvida para o **Projeto 01** da disciplina de **Administração de Sistemas Abertos** (2025.2), ministrada pelo Prof. Leonidas Lima no **IFPB - Campus João Pessoa**.
 
-O objetivo principal é provisionar um ambiente virtual automatizado e configurar serviços essenciais utilizando **Vagrant** e **Ansible**.
+O objetivo é provisionar um ambiente virtual automatizado e configurar serviços essenciais utilizando **Vagrant** e **Ansible**.
 
 ## 🏗️ Arquitetura do Ambiente
-O projeto consiste em 4 máquinas virtuais (VMs) baseadas em **Debian 12 (Bookworm)** utilizando o provider **VirtualBox**.
 
-As máquinas são:
-* **arq (Servidor de Arquivos):** Responsável por DHCP, DNS, LVM e compartilhamento NFS.
-* **db (Banco de Dados):** Servidor rodando MariaDB.
-* **app (Aplicação):** Servidor Web Apache.
-* **cli (Cliente):** Estação de trabalho com interface gráfica (Firefox e X11).
+O projeto utiliza 4 máquinas virtuais baseadas em **Debian 12 (Bookworm)** com o provider **VirtualBox**:
+
+* **arq (Servidor de Arquivos):** DHCP, DNS, LVM e compartilhamento NFS
+* **db (Banco de Dados):** MariaDB configurado e acessível na rede interna
+* **app (Aplicação):** Servidor web Apache com página personalizada
+* **cli (Cliente):** Estação de testes com Firefox e suporte a X11 forwarding
 
 ## 🛠️ Tecnologias Utilizadas
+
 * Vagrant
 * VirtualBox
 * Ansible
@@ -22,29 +24,34 @@ As máquinas são:
 * Shell Script
 
 ## 📋 Pré-requisitos
-Para executar este projeto, certifique-se de ter instalado:
+
+Certifique-se de ter instalado:
+
 * VirtualBox
 * Vagrant
 * Ansible
 
 ## 🚀 Como Executar
+
 1. Clone este repositório:
+
    ```bash
    git clone <url-do-seu-repositorio>
    cd <nome-do-repositorio>
+   ```
 
-2.  Inicialize o ambiente com o Vagrant:
+2. Inicialize o ambiente:
 
-    ```bash
-    vagrant up
-    ```
+   ```bash
+   vagrant up
+   ```
 
-3.  O provisionamento e configuração das máquinas serão gerenciados pelos Playbooks do Ansible.
+3. O provisionamento das máquinas será realizado automaticamente pelos playbooks do Ansible.
 
 ## 👤 Autor
 
-  * **Victor Henrique Santos Ferreira**
+**Victor Henrique Santos Ferreira**
 
------
+---
 
-*Projeto desenvolvido para fins educacionais no Instituto Federal da Paraíba.*
+*Projeto desenvolvido para fins educacionais no Instituto Federal da Paraíba (IFPB).*
