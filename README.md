@@ -48,9 +48,11 @@ Certifique-se de ter instalado:
 
 3. O provisionamento das máquinas será realizado automaticamente pelos playbooks do Ansible.
 
-## 👤 Autor
+👥 Integrantes da Equipe
 
-**Victor Henrique Santos Ferreira**
+Victor Henrique Santos Ferreira
+
+Tyrone Michel Caldas Albuquerque
 
 ---
 
