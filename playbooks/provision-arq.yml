@@ -1,0 +1,83 @@
+---
+- name: Provisionar servidor ARQ
+  hosts: arq
+  become: true
+
+  vars:
+    domain_name: "tyrone.victor.devops"
+    dhcp_range_start: "192.168.56.50"
+    dhcp_range_end: "192.168.56.100"
+    dhcp_lease_time: 600
+    dhcp_max_lease: 7200
+    dns_forwarders:
+      - 8.8.8.8
+      - 1.1.1.1
+
+  tasks:
+    - name: Instalar pacotes necessários
+      apt:
+        name:
+          - isc-dhcp-server
+          - bind9
+          - lvm2
+          - mdadm
+          - nfs-kernel-server
+        state: present
+        update_cache: yes
+
+    # ================= DHCP =================
+    - name: Configurar dhcpd.conf
+      template:
+        src: ../templates/dhcpd.conf.j2
+        dest: /etc/dhcp/dhcpd.conf
+      notify: restart dhcp
+
+    - name: Definir interface do DHCP
+      lineinfile:
+        path: /etc/default/isc-dhcp-server
+        regexp: '^INTERFACESv4='
+        line: 'INTERFACESv4="eth1"'
+      notify: restart dhcp
+
+    - name: Garantir DHCP ativo
+      service:
+        name: isc-dhcp-server
+        state: started
+        enabled: yes
+
+    # ================= DNS =================
+    - name: Configurar Bind9 options
+      template:
+        src: ../templates/named.conf.options.j2
+        dest: /etc/bind/named.conf.options
+      notify: restart bind9
+
+    - name: Zona direta DNS
+      template:
+        src: ../templates/db.tyrone.victor.devops.j2
+        dest: /etc/bind/db.tyrone.victor.devops
+      notify: restart bind9
+
+    - name: Zona reversa DNS
+      template:
+        src: ../templates/db.192.168.56.j2
+        dest: /etc/bind/db.192.168.56
+      notify: restart bind9
+
+    - name: Garantir bind9 ativo
+      service:
+        name: bind9
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: restart dhcp
+      service:
+        name: isc-dhcp-server
+        state: restarted
+
+    - name: restart bind9
+      service:
+        name: bind9
+        state: restarted
+

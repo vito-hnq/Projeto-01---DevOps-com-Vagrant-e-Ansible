@@ -1,0 +1,10 @@
+option domain-name "{{ domain_name }}";
+option domain-name-servers {{ dns_forwarders | join(", ") }};
+
+default-lease-time {{ dhcp_lease_time }};
+max-lease-time {{ dhcp_max_lease }};
+
+subnet 192.168.56.0 netmask 255.255.255.0 {
+  range {{ dhcp_range_start }} {{ dhcp_range_end }};
+}
+

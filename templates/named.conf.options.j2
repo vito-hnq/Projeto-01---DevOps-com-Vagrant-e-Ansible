@@ -1,0 +1,14 @@
+options {
+  directory "/var/cache/bind";
+  recursion yes;
+  allow-query { 192.168.56.0/24; localhost; };
+  forwarders {
+    {% for f in dns_forwarders %}
+    {{ f }};
+    {% endfor %}
+  };
+  dnssec-validation auto;
+  auth-nxdomain no;
+  listen-on { 127.0.0.1; 192.168.56.123; };
+};
+

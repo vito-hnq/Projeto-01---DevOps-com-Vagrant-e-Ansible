@@ -1,0 +1,23 @@
+---
+domain_name: tyrone.victor.devops
+
+# DHCP
+dhcp_range_start: 192.168.56.50
+dhcp_range_end: 192.168.56.100
+dhcp_lease_time: 600
+dhcp_max_lease: 7200
+
+# DNS
+dns_forwarders:
+  - 1.1.1.1
+  - 8.8.8.8
+
+# LVM / RAID
+vg_name: ifpb
+lv_name: ifpb
+lv_size: 15G
+
+# NFS
+nfs_share_dir: /dados/nfs
+nfs_user: nfs-ifpb
+

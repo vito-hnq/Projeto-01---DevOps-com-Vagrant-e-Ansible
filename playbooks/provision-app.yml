@@ -1,0 +1,11 @@
+- name: Provisionar APP
+  hosts: app
+  become: true
+
+  tasks:
+    - name: Instalar Apache
+      apt:
+        name: apache2
+        state: present
+        update_cache: yes
+

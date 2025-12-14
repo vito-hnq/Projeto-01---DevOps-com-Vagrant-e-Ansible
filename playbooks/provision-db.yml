@@ -1,0 +1,42 @@
+---
+- name: Provisionar DB (MariaDB + autofs)
+  hosts: db
+  become: true
+
+  tasks:
+    - name: Instalar MariaDB e autofs
+      apt:
+        name:
+          - mariadb-server
+          - autofs
+          - nfs-common
+        update_cache: yes
+        state: present
+
+    - name: Ensure mariadb running
+      service:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    - name: Configure autofs map for /var/nfs
+      copy:
+        dest: /etc/auto.nfs
+        content: "/var/nfs -fstype=nfs,rw 192.168.56.123:/dados/nfs\n"
+        mode: '0644'
+
+    - name: Ensure autofs master contains line
+      lineinfile:
+        path: /etc/auto.master
+        regexp: '^/var/nfs'
+        line: '/var/nfs /etc/auto.nfs --timeout=60'
+        create: yes
+      notify: restart autofs
+
+  handlers:
+    - name: restart autofs
+      service:
+        name: autofs
+        state: restarted
+        enabled: yes
+
