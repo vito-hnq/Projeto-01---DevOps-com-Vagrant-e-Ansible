@@ -36,3 +36,7 @@
         state: restarted
         enabled: yes
 
+    - name: Atualizar o sistema operacional
+      apt:
+        update_cache: yes
+        upgrade: dist
