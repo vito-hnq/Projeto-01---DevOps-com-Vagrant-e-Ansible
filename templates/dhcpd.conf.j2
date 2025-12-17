@@ -1,10 +1,28 @@
 option domain-name "{{ domain_name }}";
-option domain-name-servers {{ dns_forwarders | join(", ") }};
+option domain-name-servers 192.168.56.123;
 
 default-lease-time {{ dhcp_lease_time }};
 max-lease-time {{ dhcp_max_lease }};
 
 subnet 192.168.56.0 netmask 255.255.255.0 {
   range {{ dhcp_range_start }} {{ dhcp_range_end }};
+  option routers 192.168.56.1;
+}
+
+# ================= RESERVAS DHCP =================
+
+host db {
+  hardware ethernet 08:00:27:AA:01:02;
+  fixed-address 192.168.56.102;
+}
+
+host app1 {
+  hardware ethernet 08:00:27:AA:01:03;
+  fixed-address 192.168.56.103;
+}
+
+host cli {
+  hardware ethernet 08:00:27:AA:01:04;
+  fixed-address 192.168.56.104;
 }
 

@@ -1,11 +1,48 @@
+---
 - name: Provisionar APP
   hosts: app
   become: true
 
   tasks:
+    # ================= SISTEMA =================
+    - name: Atualizar cache e upgrade do sistema
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    # ================= Apache =================
     - name: Instalar Apache
       apt:
         name: apache2
         state: present
         update_cache: yes
+
+    - name: Garantir Apache ativo
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    # ================= NTP =================
+    - name: Instalar chrony
+      apt:
+        name: chrony
+        state: present
+        update_cache: yes
+
+    - name: Configurar servidor NTP
+      lineinfile:
+        path: /etc/chrony/chrony.conf
+        regexp: '^server'
+        line: 'server pool.ntp.br iburst'
+
+    - name: Ajustar fuso horário
+      timezone:
+        name: America/Recife
+
+    - name: Garantir chrony ativo
+      service:
+        name: chrony
+        state: started
+        enabled: yes
 

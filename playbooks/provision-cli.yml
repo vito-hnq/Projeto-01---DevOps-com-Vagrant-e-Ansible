@@ -4,6 +4,12 @@
   become: true
 
   tasks:
+    # ================= SISTEMA =================
+    - name: Atualizar cache e upgrade do sistema
+      apt:
+        update_cache: yes
+        upgrade: dist
+
     - name: Instalar pacotes basicos
       apt:
         name:
@@ -12,21 +18,105 @@
           - autofs
           - dnsutils
           - net-tools
+          - chrony
         update_cache: yes
         state: present
 
-    - name: Configure autofs map on cli
+    # ================= NTP =================
+    - name: Configurar servidor NTP
+      lineinfile:
+        path: /etc/chrony/chrony.conf
+        regexp: '^server'
+        line: 'server pool.ntp.br iburst'
+
+    - name: Ajustar fuso horário
+      timezone:
+        name: America/Recife
+
+    - name: Garantir chrony ativo
+      service:
+        name: chrony
+        state: started
+        enabled: yes
+
+    # ================= GRUPO E USUÁRIOS =================
+    - name: Criar grupo ifpb
+      group:
+        name: ifpb
+        state: present
+
+    - name: Criar usuários tyrone e victor
+      user:
+        name: "{{ item }}"
+        groups: ifpb
+        append: yes
+        shell: /bin/bash
+        create_home: yes
+        state: present
+      loop:
+        - tyrone
+        - victor
+
+    - name: Conceder sudo sem senha para grupo ifpb
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%ifpb'
+        line: '%ifpb ALL=(ALL) NOPASSWD:ALL'
+        validate: 'visudo -cf %s'
+
+    # ================= SSH =================
+    - name: Configurar SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      loop:
+        - { regexp: '^PasswordAuthentication', line: 'PasswordAuthentication no' }
+        - { regexp: '^PermitRootLogin', line: 'PermitRootLogin no' }
+        - { regexp: '^AllowGroups', line: 'AllowGroups vagrant ifpb' }
+
+    - name: Criar mensagem de saudação SSH
       copy:
-        dest: /etc/auto.nfs
-        content: "/var/nfs -fstype=nfs,rw 192.168.56.123:/dados/nfs\n"
+        dest: /etc/motd
+        content: "Acesso apenas para pessoas com autorização expressa!!!"
+        owner: root
+        group: root
         mode: '0644'
 
-    - name: Ensure autofs master line
+    - name: Reiniciar SSH
+      service:
+        name: ssh
+        state: restarted
+
+    # ================= DNS fixo =================
+    - name: Fixar resolv.conf com DNS do ARQ
+      copy:
+        dest: /etc/resolv.conf
+        content: |
+          search tyrone.victor.devops
+          nameserver 192.168.56.123
+        owner: root
+        group: root
+        mode: '0644'
+
+    # ================= autofs =================
+    - name: Configurar mapa autofs no CLI
+      copy:
+        dest: /etc/auto.nfs
+        content: |
+          dados  -rw,soft,intr  arq:/dados/nfs
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Garantir entrada do autofs no auto.master
       lineinfile:
         path: /etc/auto.master
         regexp: '^/var/nfs'
-        line: '/var/nfs /etc/auto.nfs --timeout=60'
-        create: yes
+        line: '/var/nfs  /etc/auto.nfs --timeout=60'
+        state: present
       notify: restart autofs
 
   handlers:
@@ -36,7 +126,3 @@
         state: restarted
         enabled: yes
 
-    - name: Atualizar o sistema operacional
-      apt:
-        update_cache: yes
-        upgrade: dist

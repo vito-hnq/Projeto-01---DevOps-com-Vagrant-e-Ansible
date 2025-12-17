@@ -1,0 +1,216 @@
+---
+- name: Provisionar servidor ARQ (DHCP, DNS, NFS, LVM/RAID)
+  hosts: arq
+  become: true
+  vars:
+    domain_name: "tyrone.victor.devops"
+    dhcp_range_start: "192.168.56.50"
+    dhcp_range_end:   "192.168.56.100"
+    dhcp_lease_time: 180
+    dhcp_max_lease: 3600
+    dns_forwarders: [ "1.1.1.1", "8.8.8.8" ]
+    vg_name: dados
+    lv_name: ifpb
+    lv_size: 15G
+    nfs_share_dir: /dados/nfs
+    nfs_user: nfs-ifpb
+
+  tasks:
+    # Atualizar o sistema operacional
+    - name: Atualizar o sistema operacional
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    # Instalar e configurar o servidor NTP (chrony)
+    - name: Instalar o chrony
+      apt:
+        name: chrony
+        state: present
+
+    - name: Configurar o servidor NTP
+      lineinfile:
+        path: /etc/chrony/chrony.conf
+        regexp: '^server'
+        line: 'server pool.ntp.br iburst'
+
+    - name: Ajustar o fuso horário para America/Recife
+      command: timedatectl set-timezone America/Recife
+
+    - name: Reiniciar o chrony
+      service:
+        name: chrony
+        state: restarted
+
+    - name: Garantir que o chrony esteja ativo
+      service:
+        name: chrony
+        state: started
+        enabled: yes
+
+    # Criar o grupo ifpb
+    - name: Criar o grupo ifpb
+      group:
+        name: ifpb
+        state: present
+
+    # Criar os usuários nome1 e nome2 e incluí-los no grupo ifpb
+    - name: Criar usuário tyrone
+      user:
+        name: tyrone
+        group: ifpb
+        state: present
+
+    - name: Criar usuário victor
+      user:
+        name: victor
+        group: ifpb
+        state: present
+
+    # Instalar pacotes necessários no ARQ
+    - name: Instalar pacotes necessários
+      apt:
+        name:
+          - isc-dhcp-server
+          - bind9
+          - lvm2
+          - mdadm
+          - nfs-kernel-server
+          - apache2
+          - vsftpd
+        update_cache: yes
+        state: present
+
+    # Configurar dhcpd.conf
+    - name: Configurar dhcpd.conf
+      template:
+        src: ../templates/dhcpd.conf.j2
+        dest: /etc/dhcp/dhcpd.conf
+        mode: '0644'
+      notify: restart dhcp
+
+    # Configurar /etc/default/isc-dhcp-server para interface eth1
+    - name: Configurar /etc/default/isc-dhcp-server para interface eth1
+      lineinfile:
+        path: /etc/default/isc-dhcp-server
+        regexp: '^INTERFACESv4'
+        line: 'INTERFACESv4="eth1"'
+      notify: restart dhcp
+
+    # Garantir que o serviço DHCP esteja ativo
+    - name: Garantir DHCP ativo
+      service:
+        name: isc-dhcp-server
+        state: started
+        enabled: yes
+
+    # Configurar o Bind9
+    - name: Configurar Bind9 options
+      template:
+        src: ../templates/named.conf.options.j2
+        dest: /etc/bind/named.conf.options
+      notify: restart bind9
+
+    # Configurar zona direta
+    - name: Zona direta DNS
+      template:
+        src: ../templates/db.tyrone.victor.devops.j2
+        dest: /etc/bind/db.tyrone.victor.devops
+      notify: restart bind9
+
+    # Configurar zona reversa
+    - name: Zona reversa DNS
+      template:
+        src: ../templates/db.192.168.56.j2
+        dest: /etc/bind/db.192.168.56
+      notify: restart bind9
+
+    # Garantir que o Bind9 esteja ativo
+    - name: Garantir bind9 ativo
+      service:
+        name: bind9
+        state: started
+        enabled: yes
+
+    # Criar RAID1 md0 com sdb e sdc
+    - name: Criar RAID1 md0
+      command: mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc
+      register: mdadm_create
+      failed_when: mdadm_create.rc not in [0,1]  # mdadm pode retornar 1 se já existir
+
+    # Criar PV no RAID
+    - name: Criar PV no RAID
+      command: pvcreate /dev/md0
+      register: pvcreate_result
+
+    # Criar VG dados
+    - name: Criar VG dados usando o RAID
+      command: vgcreate dados /dev/md0
+      register: vgcreate_result
+      failed_when: "'already exists' not in vgcreate_result.stderr and vgcreate_result.rc != 0"
+
+    # Criar LV de 15G
+    - name: Criar LV de 15G
+      command: lvcreate -n ifpb -L 15G dados
+      args:
+        creates: /dev/dados/ifpb
+
+    # Criar sistema de arquivos ext4 no LV
+    - name: Criar sistema de arquivos ext4 no LV
+      command: mkfs.ext4 /dev/dados/ifpb
+      register: mkfs_lv
+
+    # Criar ponto de montagem /dados e montar LV
+    - name: Criar ponto de montagem /dados
+      file:
+        path: /dados
+        state: directory
+
+    - name: Montar o LV em /dados
+      mount:
+        path: /dados
+        src: /dev/dados/ifpb
+        fstype: ext4
+        opts: defaults
+        state: mounted
+
+    # Criar diretório para compartilhamento NFS
+    - name: Criar diretório para compartilhamento NFS
+      file:
+        path: "{{ nfs_share_dir }}"
+        state: directory
+        owner: "{{ nfs_user }}"
+        group: "{{ nfs_user }}"
+        mode: '0755'
+
+    # Exportar diretório NFS
+    - name: Garantir que o NFS esteja configurado
+      lineinfile:
+        path: /etc/exports
+        line: "{{ nfs_share_dir }} 192.168.56.0/24(rw,sync,no_subtree_check,all_squash,anonuid=0,anongid=0)"
+        create: yes
+      notify: exportfs
+
+    # Garantir que o NFS esteja ativo
+    - name: Garantir NFS ativo
+      service:
+        name: nfs-kernel-server
+        state: started
+        enabled: yes
+
+  handlers:
+    # Reiniciar DHCP
+    - name: restart dhcp
+      service:
+        name: isc-dhcp-server
+        state: restarted
+
+    # Reiniciar Bind9
+    - name: restart bind9
+      service:
+        name: bind9
+        state: restarted
+
+    # Reiniciar exportfs
+    - name: exportfs
+      command: exportfs -a

@@ -1,0 +1,42 @@
+---
+- name: Provisionar cliente CLI
+  hosts: cli
+  become: true
+
+  tasks:
+    - name: Instalar pacotes basicos
+      apt:
+        name:
+          - xauth
+          - nfs-common
+          - autofs
+          - dnsutils
+          - net-tools
+        update_cache: yes
+        state: present
+
+    - name: Configure autofs map on cli
+      copy:
+        dest: /etc/auto.nfs
+        content: "/var/nfs -fstype=nfs,rw 192.168.56.123:/dados/nfs\n"
+        mode: '0644'
+
+    - name: Ensure autofs master line
+      lineinfile:
+        path: /etc/auto.master
+        regexp: '^/var/nfs'
+        line: '/var/nfs /etc/auto.nfs --timeout=60'
+        create: yes
+      notify: restart autofs
+
+  handlers:
+    - name: restart autofs
+      service:
+        name: autofs
+        state: restarted
+        enabled: yes
+
+    - name: Atualizar o sistema operacional
+      apt:
+        update_cache: yes
+        upgrade: dist
